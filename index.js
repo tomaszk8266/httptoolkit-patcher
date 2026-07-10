@@ -364,7 +364,7 @@ async function captureIntegrityHashes(executablePath) {
 				child.kill();
 				reject(new Error("Timed out waiting for integrity check output"));
 			}
-		}, 20000);
+		}, 30000);
 
 		const handleData = data => {
 			output += data.toString();
@@ -662,6 +662,26 @@ async function patchApp() {
 		console.error(chalk.redBright(`[-] ${e.message}`));
 		process.exit(1);
 	}
+
+  // macOS: Sign the patched app
+  if (isMac) {
+    const appBundlePath = path.resolve(appPath, '..', '..');
+    console.log(chalk.yellowBright('[+] Signing HTTP Toolkit with ad-hoc signature...'));
+    try {
+      execSync(`codesign --deep --force --sign - "${appBundlePath}"`, {stdio: "pipe"});
+      console.log(chalk.greenBright('[+] HTTP Toolkit signed successfully'));
+      console.log(chalk.yellowBright(`    Make sure to whitelist the app in privacy and security settings!`));
+    } catch (e) {
+      rm(extractPath);
+      console.error(chalk.redBright(`[!] Failed to sign HTTP Toolkit: ${e.message}`));
+      process.exit(1);
+    }
+    try {
+      execSync(`xattr -d com.apple.quarantine "${appBundlePath}" 2>/dev/null`, {stdio: 'pipe'});
+    } catch (e) {
+      console.log(chalk.redBright('[!] Failed to remove the quarantine attribute'));
+    }
+  }
 
 	console.log(chalk.yellowBright('[+] Launching HTTP Toolkit to read integrity hashes...'));
 	let hashes;
